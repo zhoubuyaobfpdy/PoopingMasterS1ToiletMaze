@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>厕所迷宫 - 第一关</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  display: flex; justify-content: center; align-items: center;
+  min-height: 100vh; color: #eee;
+}
+#game-container {
+  position: relative;
+  width: 640px; max-width: 95vw;
+}
+canvas {
+  display: block; background: #16213e;
+  border: 3px solid #e94560; border-radius: 8px;
+  box-shadow: 0 0 30px rgba(233,69,96,0.3);
+}
+#hud {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 5px; font-size: 14px; color: #eee;
+}
+.hud-item { display: flex; align-items: center; gap: 6px; }
+.hud-icon { font-size: 20px; }
+#message-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  background: rgba(0,0,0,0.88); border-radius: 8px; z-index: 10;
+  text-align: center; padding: 20px; overflow-y: auto;
+}
+#message-overlay h1 { font-size: 26px; margin-bottom: 12px; }
+#message-overlay p { font-size: 15px; margin-bottom: 8px; line-height: 1.6; }
+#message-overlay button {
+  margin-top: 12px; padding: 12px 36px; font-size: 18px;
+  background: #e94560; color: #fff; border: none; border-radius: 6px;
+  cursor: pointer; font-family: inherit;
+}
+#message-overlay button:hover { background: #ff5577; }
+.star-display { font-size: 36px; margin: 8px 0; letter-spacing: 4px; }
+.hidden { display: none !important; }
+#controls-hint {
+  text-align: center; padding: 8px; font-size: 13px; color: #888;
+}
+.legend { font-size: 13px; color: #bbb; text-align: left; display: inline-block; line-height: 1.8; }
+.name-input-section {
+  margin: 8px 0 16px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.name-input-section label { font-size: 14px; color: #aaa; }
+.name-input-section input {
+  padding: 8px 16px; font-size: 16px; text-align: center;
+  background: #2a2a4e; border: 2px solid #e94560; border-radius: 6px;
+  color: #fff; width: 200px; outline: none;
+}
+.name-input-section input:focus { border-color: #ff5577; }
+.lb-link {
+  margin-top: 14px; display: inline-block; color: #5dade2; font-size: 13px;
+  text-decoration: underline; cursor: pointer;
+}
+.lb-link:hover { color: #85c1e9; }
+.mini-lb {
+  margin-top: 12px; width: 100%; max-width: 480px;
+  text-align: left;
+}
+.mini-lb h3 { font-size: 15px; color: #e94560; margin-bottom: 6px; text-align: center; }
+.mini-lb table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mini-lb th { color: #aaa; padding: 4px 8px; border-bottom: 1px solid #333; }
+.mini-lb td { padding: 4px 8px; border-bottom: 1px solid #222; }
+.mini-lb .rank-1 { color: #ffd700; font-weight: bold; }
+.mini-lb .rank-2 { color: #c0c0c0; }
+.mini-lb .rank-3 { color: #cd7f32; }
+#name-display {
+  position: absolute; top: 8px; right: 12px; z-index: 5;
+  font-size: 12px; color: #555;
+}
+.share-section {
+  margin-top: 16px; width: 100%; max-width: 460px;
+  text-align: center;
+}
+.share-section label { font-size: 13px; color: #aaa; display: block; margin-bottom: 6px; }
+.share-input-row {
+  display: flex; gap: 8px; align-items: center; justify-content: center;
+}
+.share-input-row input {
+  flex: 1; max-width: 320px; padding: 8px 12px; font-size: 13px;
+  background: #2a2a4e; border: 1px solid #333; border-radius: 6px;
+  color: #ccc; outline: none;
+}
+.share-btn {
+  padding: 8px 20px; font-size: 14px;
+  background: #0f3460; color: #eee; border: 1px solid #1e3050;
+  border-radius: 6px; cursor: pointer; font-family: inherit; white-space: nowrap;
+}
+.share-btn:hover { background: #1a4070; }
+.share-note { font-size: 12px; color: #666; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="game-container">
+  <div id="name-display"></div>
+  <div id="hud">
+    <div class="hud-item"><span class="hud-icon">⭐</span><span id="star-count">0/3</span></div>
+    <div class="hud-item"><span class="hud-icon">📊</span><span id="status-text">准备出发</span></div>
+    <div class="hud-item"><span class="hud-icon">⏱️</span><span id="timer">0.0s</span></div>
+  </div>
+  <canvas id="game" width="600" height="600"></canvas>
+  <div id="controls-hint">方向键 / WASD 移动 · 按任意方向键开始</div>
+  <div id="message-overlay">
+    <h1>🚽 厕所迷宫 · 第一关</h1>
+    <p>你急需上厕所，但所有厕所都满了！<br>你误入了一个迷宫，一个"小屎人"正在追你……</p>
+    <p style="color:#e94560; font-weight:bold; font-size:17px;">在被追到之前找到营业的厕所！</p>
+    <div class="legend">
+      🏃 玩家 · 💩 小屎人（追击者）<br>
+      🚽 厕所 = 有营业的也有废弃的，外观一样！踩上去才知道！<br>
+      &nbsp;&nbsp;&nbsp;→ 营业厕所 = 胜利！废弃厕所 = 失败！<br>
+      ⭐ 星星 = 收集提升星级（3星满分）<br>
+      ⚡ 加速器 = 玩家速度+50%（持续5秒）<br>
+      ❄️ 冰冻球 = 冻住小屎人5秒<br>
+      👻 隐身球 = 隐身3秒，可穿墙/安全穿越死路/废弃厕所<br>
+      💣 死路 = 踩到即失败！（隐身穿墙时除外）<br>
+      <span style="color:#e94560;">⚠️ 玩家速度是小屎人的1.5倍</span>
+    </div>
+    <div class="name-input-section">
+      <label for="player-name">输入你的名字，加入排行榜：</label>
+      <input type="text" id="player-name" placeholder="你的昵称" maxlength="12" value="">
+    </div>
+    <button onclick="startGame()">开始逃跑！</button>
+    <span class="lb-link" onclick="toggleLeaderboard()">🏆 展开/收起排行榜</span>
+    <div id="mini-lb-container" class="mini-lb hidden"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 迷宫地图
+// W=墙 .=通道 G=营业厕所 D=死路 A=废弃厕所
+// S=加速器 F=冰冻球 I=隐身球 *=星星 P=玩家 C=小屎人
+// ============================================================
+const COLS = 15;
+const ROWS = 15;
+const CELL = 40;
+
+const RAW_MAZE = [
+  "WWWWWWWWWWWWWWW",
+  "WP..*........AW",
+  "W.WWWWW.WWWWW.W",
+  "W.............W",
+  "W.WWWWW.WWWWW.W",
+  "W..*.W..F.WS..W",
+  "W.WWWW..WWWWW.W",
+  "WA............W",
+  "W.WWWWW.WWWWW.W",
+  "W.D.W....W....W",
+  "W.WWWW..WWWWW.W",
+  "W....W.I.W....W",
+  "W.WDWW..WDWWW.W",
+  "WC....*......GW",
+  "WWWWWWWWWWWWWWW",
+];
+
+// ---- 解析迷宫 ----
+let grid = [];
+let itemsBackup = {};
+let playerStart = null;
+let chaserStart = null;
+let totalStars = 0;
+
+function parseMaze() {
+  grid = [];
+  itemsBackup = {};
+  playerStart = null;
+  chaserStart = null;
+  totalStars = 0;
+  for (let r = 0; r < ROWS; r++) {
+    grid[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      const ch = RAW_MAZE[r][c];
+      switch(ch) {
+        case 'W': grid[r][c] = 'wall'; break;
+        case '.': grid[r][c] = 'path'; break;
+        case 'P': grid[r][c] = 'path'; playerStart = {r, c}; break;
+        case 'C': grid[r][c] = 'path'; chaserStart = {r, c}; break;
+        case 'G': grid[r][c] = 'goal'; break;
+        case 'D': grid[r][c] = 'deadend'; break;
+        case 'A': grid[r][c] = 'abandoned'; break;
+        case 'S': grid[r][c] = 'path'; itemsBackup[r+','+c] = 'accelerator'; break;
+        case 'F': grid[r][c] = 'path'; itemsBackup[r+','+c] = 'freeze'; break;
+        case 'I': grid[r][c] = 'path'; itemsBackup[r+','+c] = 'invisible'; break;
+        case '*': grid[r][c] = 'path'; itemsBackup[r+','+c] = 'star'; totalStars++; break;
+        default: grid[r][c] = 'wall'; break;
+      }
+    }
+  }
+}
+
+parseMaze();
+
+// ============================================================
+// 游戏状态
+// ============================================================
+let canvas, ctx;
+let player, chaser;
+let items = {};
+let gameStarted = false;
+let gameEnded = false;
+let starsCollected = 0;
+let startTime = 0;
+let elapsedTime = 0;
+let frozenUntil = 0;
+let invisibleUntil = 0;
+let speedBoostUntil = 0;
+let lastFrameTime = 0;
+
+let playerName = '';
+
+const PLAYER_BASE_INTERVAL = 150;
+const CHASER_INTERVAL = 225;
+const SPEED_BOOST_MULT = 0.667;
+
+// ---- BFS ----
+function bfs(startR, startC, targetR, targetC) {
+  if (startR === targetR && startC === targetC) return [];
+  const visited = Array(ROWS).fill(null).map(() => Array(COLS).fill(false));
+  const parent = Array(ROWS).fill(null).map(() => Array(COLS).fill(null));
+  const queue = [[startR, startC]];
+  visited[startR][startC] = true;
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+  while (queue.length > 0) {
+    const [r, c] = queue.shift();
+    if (r === targetR && c === targetC) {
+      const path = [];
+      let cur = [r, c];
+      while (parent[cur[0]][cur[1]]) {
+        path.unshift(cur);
+        cur = parent[cur[0]][cur[1]];
+      }
+      return path;
+    }
+    for (const [dr, dc] of dirs) {
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+      if (visited[nr][nc]) continue;
+      if (grid[nr][nc] === 'wall') continue;
+      visited[nr][nc] = true;
+      parent[nr][nc] = [r, c];
+      queue.push([nr, nc]);
+    }
+  }
+  return [];
+}
+
+// ============================================================
+// 渲染
+// ============================================================
+function drawCell(r, c) {
+  const x = c * CELL;
+  const y = r * CELL;
+  const cell = grid[r][c];
+  if (cell === 'wall') {
+    ctx.fillStyle = '#0f3460';
+    ctx.fillRect(x, y, CELL, CELL);
+    ctx.fillStyle = '#0a2640';
+    ctx.fillRect(x + 2, y + 2, CELL - 4, CELL - 4);
+    ctx.fillStyle = '#0f3460';
+    ctx.fillRect(x + 6, y + 6, CELL - 12, CELL - 12);
+  } else if (cell === 'goal') {
+    ctx.fillStyle = '#1a6e3e';
+    ctx.fillRect(x, y, CELL, CELL);
+    ctx.fillStyle = 'rgba(40,200,80,0.3)';
+    ctx.fillRect(x + 3, y + 3, CELL - 6, CELL - 6);
+    ctx.font = '22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🚽', x + CELL/2, y + CELL/2);
+    ctx.strokeStyle = '#2a8e4e';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, CELL - 2, CELL - 2);
+    ctx.lineWidth = 1;
+  } else if (cell === 'deadend') {
+    ctx.fillStyle = '#3a1010';
+    ctx.fillRect(x, y, CELL, CELL);
+    ctx.font = '22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('💣', x + CELL/2, y + CELL/2);
+  } else if (cell === 'abandoned') {
+    ctx.fillStyle = '#1a6e3e';
+    ctx.fillRect(x, y, CELL, CELL);
+    ctx.fillStyle = 'rgba(40,200,80,0.3)';
+    ctx.fillRect(x + 3, y + 3, CELL - 6, CELL - 6);
+    ctx.font = '22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🚽', x + CELL/2, y + CELL/2);
+    ctx.strokeStyle = '#2a8e4e';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, CELL - 2, CELL - 2);
+    ctx.lineWidth = 1;
+  } else {
+    ctx.fillStyle = '#1a2540';
+    ctx.fillRect(x, y, CELL, CELL);
+    ctx.strokeStyle = '#1e3050';
+    ctx.strokeRect(x + 0.5, y + 0.5, CELL - 1, CELL - 1);
+  }
+  const key = r + ',' + c;
+  if (items[key]) {
+    const item = items[key];
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if (item === 'star') {
+      ctx.font = '20px sans-serif';
+      ctx.fillText('⭐', x + CELL/2, y + CELL/2);
+    } else if (item === 'accelerator') {
+      ctx.fillStyle = 'rgba(255,200,0,0.2)';
+      ctx.beginPath();
+      ctx.arc(x + CELL/2, y + CELL/2, CELL/2 - 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = '20px sans-serif';
+      ctx.fillText('⚡', x + CELL/2, y + CELL/2);
+    } else if (item === 'freeze') {
+      ctx.fillStyle = 'rgba(0,200,255,0.2)';
+      ctx.beginPath();
+      ctx.arc(x + CELL/2, y + CELL/2, CELL/2 - 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = '20px sans-serif';
+      ctx.fillText('❄️', x + CELL/2, y + CELL/2);
+    } else if (item === 'invisible') {
+      ctx.fillStyle = 'rgba(180,0,255,0.15)';
+      ctx.beginPath();
+      ctx.arc(x + CELL/2, y + CELL/2, CELL/2 - 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = '20px sans-serif';
+      ctx.fillText('👻', x + CELL/2, y + CELL/2);
+    }
+  }
+}
+
+function drawPlayer() {
+  const now = Date.now();
+  const x = player.c * CELL + player.offsetC * CELL;
+  const y = player.r * CELL + player.offsetR * CELL;
+  const cx = x + CELL/2;
+  const cy = y + CELL/2;
+  const isHidden = now < invisibleUntil;
+  const hasBoost = now < speedBoostUntil;
+  if (isHidden) ctx.globalAlpha = 0.35;
+  if (hasBoost) {
+    ctx.fillStyle = 'rgba(255,200,0,0.15)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL/2 - 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#e94560';
+  ctx.beginPath();
+  ctx.arc(cx, cy, CELL/2 - 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.font = '18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🏃', cx, cy);
+  ctx.globalAlpha = 1.0;
+  if (hasBoost) {
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL/2 - 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+  if (isHidden) {
+    ctx.strokeStyle = 'rgba(180,0,255,0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL/2 + 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+  }
+}
+
+function drawChaser() {
+  const now = Date.now();
+  const x = chaser.c * CELL + chaser.offsetC * CELL;
+  const y = chaser.r * CELL + chaser.offsetR * CELL;
+  const cx = x + CELL/2;
+  const cy = y + CELL/2;
+  const isFrozen = now < frozenUntil;
+  if (isFrozen) {
+    ctx.fillStyle = 'rgba(100,180,255,0.25)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL/2 - 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#7ec8e3';
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL/2 - 6, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = '#8B4513';
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL/2 - 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.font = '18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('💩', cx, cy);
+  if (isFrozen) {
+    ctx.fillStyle = 'rgba(200,240,255,0.9)';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('❄', cx - 8, cy - 10);
+    ctx.fillText('❄', cx + 8, cy + 10);
+  }
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      drawCell(r, c);
+    }
+  }
+  drawChaser();
+  drawPlayer();
+}
+
+// ============================================================
+// 游戏逻辑
+// ============================================================
+function isWalkable(r, c) {
+  if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+  return grid[r][c] !== 'wall';
+}
+
+function isDangerous(r, c) {
+  const cell = grid[r][c];
+  return cell === 'deadend' || cell === 'abandoned';
+}
+
+function playerMove(dr, dc) {
+  if (gameEnded || !gameStarted) return;
+  const now = Date.now();
+  const isHidden = now < invisibleUntil;
+  const nr = player.r + dr;
+  const nc = player.c + dc;
+  if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) return;
+  if (grid[nr][nc] === 'wall' && !isHidden) return;
+  if (isDangerous(nr, nc) && !isHidden) {
+    player.r = nr;
+    player.c = nc;
+    player.offsetR = -dr;
+    player.offsetC = -dc;
+    const cellType = grid[nr][nc] === 'deadend' ? '💣死路，踩到炸弹了！' : '废弃厕所！这个厕所不能用！';
+    endGame(false, '你走进了' + cellType);
+    return;
+  }
+  player.r = nr;
+  player.c = nc;
+  player.offsetR = -dr;
+  player.offsetC = -dc;
+  checkItems();
+  if (grid[player.r][player.c] === 'goal') {
+    endGame(true, '太好了！这个厕所是营业的！');
+    return;
+  }
+  if (player.r === chaser.r && player.c === chaser.c && now >= frozenUntil) {
+    endGame(false, '小屎人追上你了！');
+    return;
+  }
+}
+
+function checkItems() {
+  const key = player.r + ',' + player.c;
+  if (!items[key]) return;
+  const item = items[key];
+  const now = Date.now();
+  if (item === 'star') {
+    starsCollected++;
+  } else if (item === 'accelerator') {
+    speedBoostUntil = now + 5000;
+  } else if (item === 'freeze') {
+    frozenUntil = now + 5000;
+  } else if (item === 'invisible') {
+    invisibleUntil = now + 3000;
+  }
+  delete items[key];
+  updateHUD();
+}
+
+function chaserMove() {
+  if (gameEnded || !gameStarted) return;
+  const now = Date.now();
+  if (now < frozenUntil) return;
+  const playerHidden = now < invisibleUntil;
+  if (playerHidden) {
+    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    const valid = dirs.filter(([dr,dc]) => isWalkable(chaser.r + dr, chaser.c + dc));
+    if (valid.length > 0) {
+      const [dr, dc] = valid[Math.floor(Math.random() * valid.length)];
+      chaser.r += dr;
+      chaser.c += dc;
+      chaser.offsetR = -dr;
+      chaser.offsetC = -dc;
+    }
+  } else {
+    const path = bfs(chaser.r, chaser.c, player.r, player.c);
+    if (path.length > 0) {
+      const [nr, nc] = path[0];
+      const dr = nr - chaser.r;
+      const dc = nc - chaser.c;
+      chaser.r = nr;
+      chaser.c = nc;
+      chaser.offsetR = -dr;
+      chaser.offsetC = -dc;
+    }
+  }
+  if (player.r === chaser.r && player.c === chaser.c) {
+    endGame(false, '小屎人追上你了！');
+    return;
+  }
+}
+
+// ============================================================
+// 排行榜 - 纯前端，数据存在 URL 参数里
+// 排名规则：成功次数 ascending → 星星 descending
+// ============================================================
+
+// 从 URL 参数读取排行榜数据
+function loadLeaderboard() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const data = params.get('lb');
+    if (data) {
+      const decoded = atob(data);
+      return JSON.parse(decoded);
+    }
+  } catch(e) { console.log('Load lb failed:', e); }
+  return [];
+}
+
+// 把排行榜数据编码到 URL
+function saveLeaderboard(lb) {
+  try {
+    const encoded = btoa(JSON.stringify(lb));
+    const url = new URL(window.location.href);
+    url.searchParams.set('lb', encoded);
+    window.history.replaceState(null, '', url.toString());
+  } catch(e) { console.log('Save lb failed:', e); }
+}
+
+// 提交成绩（更新本地排行榜）
+function submitScore(win, stars) {
+  let lb = loadLeaderboard();
+
+  // 查找已有记录
+  let record = lb.find(function(s) { return s.n === playerName; });
+  if (!record) {
+    record = { n: playerName, t: 0, s: 0, b: 0 };
+    lb.push(record);
+  }
+
+  record.t++; // total attempts
+  if (win) {
+    record.s++; // success attempts
+    record.b = Math.max(record.b || 0, stars); // best stars
+  }
+  record.b = Math.max(record.b || 0, stars);
+
+  // 排序：成功次数 ascending → 星星 descending → 时间 ascending
+  lb.sort(function(a, b) {
+    if (a.s !== b.s) return a.s - b.s;
+    if (a.b !== b.b) return b.b - a.b;
+    return (a.ts || 0) - (b.ts || 0);
+  });
+
+  // 限制最多 50 条
+  if (lb.length > 50) lb = lb.slice(0, 50);
+
+  saveLeaderboard(lb);
+  return lb;
+}
+
+function toggleLeaderboard() {
+  const container = document.getElementById('mini-lb-container');
+  if (container.classList.contains('hidden')) {
+    renderMiniLeaderboard(loadLeaderboard());
+    container.classList.remove('hidden');
+  } else {
+    container.classList.add('hidden');
+  }
+}
+
+function renderMiniLeaderboard(lb) {
+  const container = document.getElementById('mini-lb-container');
+  if (!lb || lb.length === 0) {
+    container.innerHTML = '<h3>🏆 排行榜</h3><p style="text-align:center; color:#666; font-size:13px;">还没有人上榜，快来抢占第一名！</p>';
+    return;
+  }
+  const rankClass = ['rank-1','rank-2','rank-3'];
+  let html = '<h3>🏆 排行榜</h3>';
+  html += '<table><thead><tr><th>#</th><th>玩家</th><th>通关</th><th>⭐</th><th>总尝试</th></tr></thead><tbody>';
+  for (let i = 0; i < Math.min(10, lb.length); i++) {
+    var e = lb[i];
+    var cls = i < 3 ? rankClass[i] : '';
+    var starStr = '';
+    var bs = e.b || 0;
+    for (var j = 0; j < 3; j++) starStr += j < bs ? '⭐' : '☆';
+    html += '<tr>';
+    html += '<td class="' + cls + '">' + (i+1) + '</td>';
+    html += '<td>' + escapeHtml(e.n) + '</td>';
+    html += '<td>' + (e.s || 0) + '</td>';
+    html += '<td>' + starStr + '</td>';
+    html += '<td style="color:#888;">' + (e.t || 0) + '</td>';
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function escapeHtml(s) {
+  var div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// 生成分享链接
+function getShareLink() {
+  var lb = loadLeaderboard();
+  var encoded = btoa(JSON.stringify(lb));
+  var url = new URL(window.location.href);
+  url.searchParams.set('lb', encoded);
+  // 去掉 name 参数
+  url.searchParams.delete('name');
+  return url.toString();
+}
+
+function copyShareLink() {
+  var link = getShareLink();
+  var input = document.getElementById('share-link-input');
+  input.value = link;
+  input.select();
+  try {
+    document.execCommand('copy');
+    var btn = document.getElementById('copy-btn');
+    btn.textContent = '✅ 已复制！';
+    setTimeout(function() { btn.textContent = '📋 复制链接'; }, 2000);
+  } catch(e) {
+    // fallback
+    input.focus();
+    input.select();
+  }
+}
+
+// ============================================================
+// 游戏结束 / UI
+// ============================================================
+function endGame(win, message) {
+  gameEnded = true;
+  var overlay = document.getElementById('message-overlay');
+  var s = starsCollected;
+
+  // 提交成绩
+  var lb = submitScore(win, s);
+
+  var starStr = '';
+  var emptyStr = '';
+  for (var i = 0; i < s; i++) starStr += '⭐';
+  for (var i = 0; i < totalStars - s; i++) emptyStr += '☆';
+
+  var rating;
+  if (win) {
+    if (s === 3) rating = '⭐⭐⭐ 三星完美通关！';
+    else if (s === 2) rating = '⭐⭐ 二星通关！';
+    else if (s === 1) rating = '⭐ 一星通关';
+    else rating = '勉强通关';
+  } else {
+    if (s === 3) rating = '虽败犹荣 · 三星收集完成';
+    else if (s > 0) rating = '挑战失败 · 收集了' + s + '颗星';
+    else rating = '挑战失败 · 未收集到星星';
+  }
+
+  overlay.innerHTML =
+    '<h1>' + (win ? '🎉 胜利！' : '💀 失败！') + '</h1>' +
+    '<div class="star-display">' + starStr + emptyStr + '</div>' +
+    '<p style="font-size:20px; font-weight:bold; color:' + (win ? '#e94560' : '#888') + '">' + rating + '</p>' +
+    '<p>' + message + '</p>' +
+    '<p style="font-size:14px; color:#aaa;">用时：' + elapsedTime.toFixed(1) + '秒 · 收集星星：' + starsCollected + '/' + totalStars + '</p>' +
+    '<p style="font-size:13px; color:#5dade2;">📊 成绩已计入排行榜（' + escapeHtml(playerName) + '）</p>' +
+    '<button onclick="startGame()">再来一局</button>' +
+    '<span class="lb-link" onclick="toggleLeaderboard()">🏆 展开/收起排行榜</span>' +
+    '<div id="mini-lb-container" class="mini-lb hidden"></div>' +
+    '<div class="share-section">' +
+      '<label>🔗 把这个链接发给朋友，他们能看到你的成绩并挑战：</label>' +
+      '<div class="share-input-row">' +
+        '<input type="text" id="share-link-input" readonly>' +
+        '<button class="share-btn" id="copy-btn" onclick="copyShareLink()">📋 复制链接</button>' +
+      '</div>' +
+      '<p class="share-note">朋友打开链接就能玩同样的游戏，并看到排行榜</p>' +
+    '</div>';
+  overlay.classList.remove('hidden');
+
+  // 自动填充分享链接
+  var link = getShareLink();
+  var linkInput = document.getElementById('share-link-input');
+  if (linkInput) linkInput.value = link;
+}
+
+function updateHUD() {
+  document.getElementById('star-count').textContent = starsCollected + '/' + totalStars;
+  var status = '';
+  var now = Date.now();
+  if (now < frozenUntil) status += '❄️冰冻 ';
+  if (now < invisibleUntil) status += '👻隐身 ';
+  if (now < speedBoostUntil) status += '⚡加速 ';
+  if (!status) status = '逃跑中';
+  document.getElementById('status-text').textContent = status;
+  if (gameStarted && !gameEnded) {
+    elapsedTime = (Date.now() - startTime) / 1000;
+    document.getElementById('timer').textContent = elapsedTime.toFixed(1) + 's';
+  }
+}
+
+// ============================================================
+// 主循环
+// ============================================================
+var chaserMoveTimer = 0;
+
+function gameLoop(timestamp) {
+  if (!lastFrameTime) lastFrameTime = timestamp;
+  var dt = timestamp - lastFrameTime;
+  lastFrameTime = timestamp;
+  if (gameStarted && !gameEnded) {
+    var lerp = 0.25;
+    player.offsetR += (0 - player.offsetR) * lerp;
+    player.offsetC += (0 - player.offsetC) * lerp;
+    chaser.offsetR += (0 - chaser.offsetR) * lerp;
+    chaser.offsetC += (0 - chaser.offsetC) * lerp;
+    chaserMoveTimer += dt;
+    if (chaserMoveTimer >= CHASER_INTERVAL) {
+      chaserMoveTimer = 0;
+      chaserMove();
+    }
+    updateHUD();
+  }
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// 输入处理
+// ============================================================
+var heldDirection = null;
+var lastPlayerMoveTime = 0;
+
+function inputTick() {
+  if (gameEnded || !gameStarted) return;
+  if (!heldDirection) return;
+  var now = Date.now();
+  var interval = PLAYER_BASE_INTERVAL;
+  if (now < speedBoostUntil) interval *= SPEED_BOOST_MULT;
+  if (now - lastPlayerMoveTime >= interval) {
+    lastPlayerMoveTime = now;
+    var d = heldDirection;
+    playerMove(d[0], d[1]);
+  }
+}
+
+setInterval(inputTick, 16);
+
+document.addEventListener('keydown', function(e) {
+  var dr = 0, dc = 0;
+  switch(e.key) {
+    case 'ArrowUp': case 'w': case 'W': dr = -1; break;
+    case 'ArrowDown': case 's': case 'S': dr = 1; break;
+    case 'ArrowLeft': case 'a': case 'A': dc = -1; break;
+    case 'ArrowRight': case 'd': case 'D': dc = 1; break;
+    default: return;
+  }
+  e.preventDefault();
+  if (!gameStarted) {
+    startGame();
+    heldDirection = [dr, dc];
+    lastPlayerMoveTime = Date.now();
+    playerMove(dr, dc);
+    return;
+  }
+  if (gameEnded) return;
+  heldDirection = [dr, dc];
+  var ts = Date.now();
+  var interval = ts < speedBoostUntil ? PLAYER_BASE_INTERVAL * SPEED_BOOST_MULT : PLAYER_BASE_INTERVAL;
+  if (ts - lastPlayerMoveTime >= interval) {
+    lastPlayerMoveTime = ts;
+    playerMove(dr, dc);
+  }
+});
+
+document.addEventListener('keyup', function() {
+  heldDirection = null;
+});
+
+// ============================================================
+// 开始 / 重置
+// ============================================================
+function startGame() {
+  var nameInput = document.getElementById('player-name');
+  if (nameInput && nameInput.value.trim()) {
+    playerName = nameInput.value.trim();
+    document.getElementById('name-display').textContent = '玩家: ' + playerName;
+  } else if (!playerName) {
+    playerName = '匿名玩家';
+  }
+
+  // 保存名字到 localStorage
+  try { localStorage.setItem('toilet_maze_name', playerName); } catch(e) {}
+
+  items = {};
+  for (var key in itemsBackup) {
+    items[key] = itemsBackup[key];
+  }
+  player = { r: playerStart.r, c: playerStart.c, offsetR: 0, offsetC: 0 };
+  chaser = { r: chaserStart.r, c: chaserStart.c, offsetR: 0, offsetC: 0 };
+  starsCollected = 0;
+  frozenUntil = 0;
+  invisibleUntil = 0;
+  speedBoostUntil = 0;
+  gameStarted = true;
+  gameEnded = false;
+  startTime = Date.now();
+  elapsedTime = 0;
+  chaserMoveTimer = 0;
+  lastPlayerMoveTime = 0;
+  heldDirection = null;
+  document.getElementById('message-overlay').classList.add('hidden');
+  updateHUD();
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+window.onload = function() {
+  canvas = document.getElementById('game');
+  ctx = canvas.getContext('2d');
+  canvas.width = COLS * CELL;
+  canvas.height = ROWS * CELL;
+
+  player = { r: playerStart.r, c: playerStart.c, offsetR: 0, offsetC: 0 };
+  chaser = { r: chaserStart.r, c: chaserStart.c, offsetR: 0, offsetC: 0 };
+  items = {};
+  for (var key in itemsBackup) {
+    items[key] = itemsBackup[key];
+  }
+
+  // 从 localStorage 读取名字
+  try {
+    var savedName = localStorage.getItem('toilet_maze_name');
+    if (savedName) {
+      playerName = savedName;
+      var nameInput = document.getElementById('player-name');
+      if (nameInput) nameInput.value = savedName;
+      document.getElementById('name-display').textContent = '玩家: ' + savedName;
+    }
+  } catch(e) {}
+
+  // 如果 URL 里有排行榜数据，自动展开
+  var lb = loadLeaderboard();
+  if (lb.length > 0) {
+    renderMiniLeaderboard(lb);
+    document.getElementById('mini-lb-container').classList.remove('hidden');
+  }
+
+  render();
+  requestAnimationFrame(gameLoop);
+};
+</script>
+</body>
+</html>
