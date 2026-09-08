@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏆 厕所迷宫 · 排行榜</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #1a1a2e;
+  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  display: flex; justify-content: center; align-items: flex-start;
+  min-height: 100vh; color: #eee; padding: 30px 15px;
+}
+#container {
+  width: 600px; max-width: 95vw;
+}
+h1 {
+  text-align: center; font-size: 28px; color: #e94560; margin-bottom: 8px;
+}
+.subtitle {
+  text-align: center; font-size: 14px; color: #888; margin-bottom: 25px;
+}
+#loading {
+  text-align: center; font-size: 18px; color: #aaa; padding: 60px 0;
+}
+#leaderboard-table {
+  width: 100%; border-collapse: collapse; font-size: 16px;
+  background: #16213e; border-radius: 8px; overflow: hidden;
+}
+#leaderboard-table th {
+  background: #0f3460; color: #e94560; padding: 14px 10px;
+  font-size: 14px; text-transform: uppercase; letter-spacing: 1px;
+}
+#leaderboard-table td {
+  padding: 12px 10px; border-bottom: 1px solid #1e3050;
+}
+#leaderboard-table tr:hover td {
+  background: rgba(233,69,96,0.08);
+}
+.rank-1 td:first-child { color: #ffd700; font-size: 22px; }
+.rank-2 td:first-child { color: #c0c0c0; font-size: 20px; }
+.rank-3 td:first-child { color: #cd7f32; font-size: 20px; }
+.you {
+  background: rgba(233,69,96,0.12) !important;
+}
+.you td { border-left: 3px solid #e94560; }
+.empty-state {
+  text-align: center; padding: 60px 20px; color: #666;
+}
+.empty-state p { font-size: 16px; line-height: 1.8; }
+.back-link {
+  display: block; text-align: center; margin-top: 25px;
+  color: #5dade2; font-size: 16px; text-decoration: underline; cursor: pointer;
+}
+.back-link:hover { color: #85c1e9; }
+.stats-row {
+  display: flex; justify-content: center; gap: 30px; margin-bottom: 20px;
+  font-size: 13px; color: #888;
+}
+.stats-row span { color: #e94560; font-weight: bold; }
+.refresh-btn {
+  display: block; margin: 0 auto 20px; padding: 8px 24px;
+  background: #0f3460; color: #eee; border: 1px solid #1e3050;
+  border-radius: 6px; cursor: pointer; font-size: 14px; font-family: inherit;
+}
+.refresh-btn:hover { background: #1a4070; }
+</style>
+</head>
+<body>
+<div id="container">
+  <h1>🏆 厕所迷宫 · 排行榜</h1>
+  <p class="subtitle">排名规则：成功次数少 → 星星多 → 先上榜</p>
+
+  <div class="stats-row" id="stats-row">
+    <span>总玩家：<b id="stat-players">0</b></span>
+    <span>总挑战：<b id="stat-attempts">0</b></span>
+    <span>总通关：<b id="stat-success">0</b></span>
+  </div>
+
+  <button class="refresh-btn" onclick="fetchLeaderboard()">🔄 刷新</button>
+
+  <div id="loading">加载中...</div>
+
+  <table id="leaderboard-table" style="display:none;">
+    <thead>
+      <tr>
+        <th style="width:50px;">#</th>
+        <th>玩家</th>
+        <th style="width:80px;">通关次数</th>
+        <th style="width:100px;">⭐ 星星</th>
+        <th style="width:90px;">总尝试</th>
+      </tr>
+    </thead>
+    <tbody id="lb-body"></tbody>
+  </table>
+
+  <span class="back-link" onclick="goBack()">← 返回游戏</span>
+</div>
+
+<script>
+// 尝试获取 URL 中的玩家名（用于高亮自己）
+function getPlayerName() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('name') || '';
+  } catch { return ''; }
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function fetchLeaderboard() {
+  const apiUrl = window.location.origin.startsWith('http')
+    ? window.location.origin + '/api/leaderboard'
+    : 'http://localhost:8765/api/leaderboard';
+
+  fetch(apiUrl)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      renderLeaderboard(data.leaderboard || []);
+    })
+    .catch(function(err) {
+      document.getElementById('loading').innerHTML =
+        '<p style="color:#e94560;">无法连接到服务器 😢</p><p style="font-size:13px; color:#666;">请确保服务端正在运行</p>';
+    });
+}
+
+function renderLeaderboard(lb) {
+  const loading = document.getElementById('loading');
+  const table = document.getElementById('leaderboard-table');
+  const body = document.getElementById('lb-body');
+  const myName = getPlayerName();
+
+  if (lb.length === 0) {
+    loading.innerHTML =
+      '<div class="empty-state">' +
+      '<p style="font-size:40px;">🏜️</p>' +
+      '<p>还没有人上榜！</p>' +
+      '<p>快去玩游戏，抢占第一名吧！</p>' +
+      '</div>';
+    return;
+    // keep table hidden
+  }
+
+  // 统计
+  let totalAttempts = 0;
+  let totalSuccess = 0;
+  for (const e of lb) {
+    totalAttempts += (e.totalAttempts || 0);
+    totalSuccess += (e.successAttempts || 0);
+  }
+  document.getElementById('stat-players').textContent = lb.length;
+  document.getElementById('stat-attempts').textContent = totalAttempts;
+  document.getElementById('stat-success').textContent = totalSuccess;
+
+  const rankEmoji = ['🥇', '🥈', '🥉'];
+  const rankClass = ['rank-1', 'rank-2', 'rank-3'];
+
+  let html = '';
+  for (let i = 0; i < lb.length; i++) {
+    const e = lb[i];
+    const isMe = myName && e.name === myName;
+    let cls = '';
+    if (i < 3) cls = rankClass[i];
+    if (isMe) cls += ' you';
+
+    const rankDisplay = i < 3 ? rankEmoji[i] : (i + 1);
+    const starStr = (e.stars || 0) >= 3 ? '⭐⭐⭐' : (e.stars || 0) === 2 ? '⭐⭐☆' : (e.stars || 0) === 1 ? '⭐☆☆' : '☆☆☆';
+
+    html += '<tr class="' + cls + '">';
+    html += '<td style="text-align:center;">' + rankDisplay + '</td>';
+    html += '<td>' + escapeHtml(e.name) + (isMe ? ' <span style="color:#e94560; font-size:12px;">(你)</span>' : '') + '</td>';
+    html += '<td style="text-align:center; font-weight:bold;">' + (e.successAttempts || 0) + '</td>';
+    html += '<td style="text-align:center;">' + starStr + '</td>';
+    html += '<td style="text-align:center; color:#888;">' + (e.totalAttempts || 0) + '</td>';
+    html += '</tr>';
+  }
+  body.innerHTML = html;
+  loading.style.display = 'none';
+  table.style.display = '';
+}
+
+function goBack() {
+  const base = window.location.origin.startsWith('http')
+    ? window.location.origin
+    : 'http://localhost:8765';
+  window.location.href = base + '/';
+}
+
+// 初始加载
+fetchLeaderboard();
+
+// 每 15 秒自动刷新
+setInterval(fetchLeaderboard, 15000);
+</script>
+</body>
+</html>
